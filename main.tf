@@ -52,3 +52,16 @@ resource "aws_route_table_association" "route-association" {
   subnet_id      = aws_subnet.public-subnet-1.id
   route_table_id = aws_route_table.my-route.id
 }
+
+
+# EC2 Instance
+resource "aws_instance" "Ujwal-Server" {
+  ami                         = "ami-0f585a71d34f2d32b"
+  instance_type               = "t2.micro"
+  key_name                    = "Ujwal-SRE"
+  subnet_id                   = aws_subnet.public-subnet-1.id
+  associate_public_ip_address = true
+  tags = {
+    Name = "Ujwal-Server"
+  }
+}
