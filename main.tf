@@ -56,7 +56,7 @@ resource "aws_route_table_association" "route-association" {
 
 # EC2 Instance
 resource "aws_instance" "Ujwal-Server" {
-  ami                         = "ami-0f585a71d34f2d32b"
+  ami                         = "ami-0f918f7e67a3323f0"
   instance_type               = "t2.micro"
   key_name                    = "Ujwal-SRE"
   subnet_id                   = aws_subnet.public-subnet-1.id
