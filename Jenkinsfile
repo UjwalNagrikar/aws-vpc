@@ -3,7 +3,6 @@ pipeline {
     
     environment {
         AWS_DEFAULT_REGION = 'ap-south-1'
-        AWS_CREDENTIALS = credentials('aws-credentials-id') // Configure this in Jenkins
         TF_VAR_environment = 'dev'
         TF_IN_AUTOMATION = 'true'
         TF_CLI_ARGS = '-no-color'
@@ -30,6 +29,27 @@ pipeline {
             }
         }
         
+        stage('Configure AWS Credentials') {
+            steps {
+                script {
+                    // Option 1: Use AWS credentials stored in Jenkins
+                    withCredentials([
+                        [
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            credentialsId: 'aws-creds', // Make sure this exists in Jenkins
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]
+                    ]) {
+                        sh '''
+                            echo "AWS credentials configured"
+                            aws sts get-caller-identity || echo "AWS CLI not available, using credentials directly"
+                        '''
+                    }
+                }
+            }
+        }
+        
         stage('Setup Terraform') {
             steps {
                 script {
@@ -51,11 +71,20 @@ pipeline {
         stage('Terraform Init') {
             steps {
                 dir('aws-vpc') {
-                    script {
-                        sh '''
-                            echo "Initializing Terraform..."
-                            terraform init -upgrade
-                        '''
+                    withCredentials([
+                        [
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            credentialsId: 'aws-creds',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]
+                    ]) {
+                        script {
+                            sh '''
+                                echo "Initializing Terraform..."
+                                terraform init -upgrade
+                            '''
+                        }
                     }
                 }
             }
@@ -96,14 +125,23 @@ pipeline {
             }
             steps {
                 dir('aws-vpc') {
-                    script {
-                        sh '''
-                            echo "Running Terraform plan..."
-                            terraform plan -out=tfplan -detailed-exitcode
-                        '''
-                        
-                        // Archive the plan file
-                        archiveArtifacts artifacts: 'tfplan', fingerprint: true
+                    withCredentials([
+                        [
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            credentialsId: 'aws-creds',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]
+                    ]) {
+                        script {
+                            sh '''
+                                echo "Running Terraform plan..."
+                                terraform plan -out=tfplan -detailed-exitcode
+                            '''
+                            
+                            // Archive the plan file
+                            archiveArtifacts artifacts: 'tfplan', fingerprint: true
+                        }
                     }
                 }
             }
@@ -115,20 +153,29 @@ pipeline {
             }
             steps {
                 dir('aws-vpc') {
-                    script {
-                        if (params.AUTO_APPROVE) {
-                            sh '''
-                                echo "Applying Terraform plan with auto-approval..."
-                                terraform apply -auto-approve tfplan
-                            '''
-                        } else {
-                            timeout(time: 10, unit: 'MINUTES') {
-                                input message: 'Do you want to apply the Terraform plan?', ok: 'Apply'
+                    withCredentials([
+                        [
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            credentialsId: 'aws-creds',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]
+                    ]) {
+                        script {
+                            if (params.AUTO_APPROVE) {
+                                sh '''
+                                    echo "Applying Terraform plan with auto-approval..."
+                                    terraform apply -auto-approve tfplan
+                                '''
+                            } else {
+                                timeout(time: 10, unit: 'MINUTES') {
+                                    input message: 'Do you want to apply the Terraform plan?', ok: 'Apply'
+                                }
+                                sh '''
+                                    echo "Applying Terraform plan..."
+                                    terraform apply tfplan
+                                '''
                             }
-                            sh '''
-                                echo "Applying Terraform plan..."
-                                terraform apply tfplan
-                            '''
                         }
                     }
                 }
@@ -141,14 +188,23 @@ pipeline {
             }
             steps {
                 dir('aws-vpc') {
-                    script {
-                        sh '''
-                            echo "Creating Terraform destroy plan..."
-                            terraform plan -destroy -out=tfdestroy
-                        '''
-                        
-                        // Archive the destroy plan file
-                        archiveArtifacts artifacts: 'tfdestroy', fingerprint: true
+                    withCredentials([
+                        [
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            credentialsId: 'aws-creds',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]
+                    ]) {
+                        script {
+                            sh '''
+                                echo "Creating Terraform destroy plan..."
+                                terraform plan -destroy -out=tfdestroy
+                            '''
+                            
+                            // Archive the destroy plan file
+                            archiveArtifacts artifacts: 'tfdestroy', fingerprint: true
+                        }
                     }
                 }
             }
@@ -160,20 +216,29 @@ pipeline {
             }
             steps {
                 dir('aws-vpc') {
-                    script {
-                        if (params.AUTO_APPROVE) {
-                            sh '''
-                                echo "Destroying infrastructure with auto-approval..."
-                                terraform apply -auto-approve tfdestroy
-                            '''
-                        } else {
-                            timeout(time: 10, unit: 'MINUTES') {
-                                input message: 'Are you sure you want to destroy the infrastructure?', ok: 'Destroy'
+                    withCredentials([
+                        [
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            credentialsId: 'aws-creds',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]
+                    ]) {
+                        script {
+                            if (params.AUTO_APPROVE) {
+                                sh '''
+                                    echo "Destroying infrastructure with auto-approval..."
+                                    terraform apply -auto-approve tfdestroy
+                                '''
+                            } else {
+                                timeout(time: 10, unit: 'MINUTES') {
+                                    input message: 'Are you sure you want to destroy the infrastructure?', ok: 'Destroy'
+                                }
+                                sh '''
+                                    echo "Destroying infrastructure..."
+                                    terraform apply tfdestroy
+                                '''
                             }
-                            sh '''
-                                echo "Destroying infrastructure..."
-                                terraform apply tfdestroy
-                            '''
                         }
                     }
                 }
@@ -186,11 +251,20 @@ pipeline {
             }
             steps {
                 dir('aws-vpc') {
-                    script {
-                        sh '''
-                            echo "Terraform outputs:"
-                            terraform output
-                        '''
+                    withCredentials([
+                        [
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            credentialsId: 'aws-creds',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]
+                    ]) {
+                        script {
+                            sh '''
+                                echo "Terraform outputs:"
+                                terraform output
+                            '''
+                        }
                     }
                 }
             }
