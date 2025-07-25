@@ -1,0 +1,61 @@
+pipeline {
+    agent any
+    parameters {
+        string(name: 'GIT_REPO_URL', defaultValue: 'https://github.com/COL-Software-Institute/col-june-fastrack.git', description: 'Git repository URL')
+        choice(name: 'ACTION', choices: ['init','plan','apply','destroy'], description: 'Terraform action to perform')
+    }
+    stages {
+        stage('Clone Repo'){
+            steps{
+                echo "Cloning Repository : ${params.GIT_REPO_URL}"
+                git branch: 'main', url: "${params.GIT_REPO_URL}"
+            }
+        }
+        stage('Terraform Init'){
+            when {
+                expression { params.ACTION == "init" || "plan" || "apply" || "destroy"}
+            }
+            steps{
+                script {
+                    echo "${params.ACTION}"
+                    sh "terraform init"
+                }
+
+            }
+        }
+        stage('Terraform Plan') {
+            when {
+                expression { params.ACTION == "plan" }
+            }
+            steps {
+                script {
+                    echo "Runinng Terraform Plan"
+                    "${params.ACTION}"
+                    sh "terraform plan"
+                }
+            }
+        }
+        stage('Terraform apply'){
+            when {
+                expression { params.ACTION == 'apply'}
+            }
+            steps{
+                script {
+                    echo "Running Terraform apply ..."
+                    sh "terraform apply --auto-approve"
+                }
+            }
+        }
+        stage('Terraform Destroy'){
+            when {
+                expression { params.ACTION == "destroy" }
+            }
+            steps{
+                script{
+                    echo "Running Terraform destroy..."
+                    sh "terraform destroy --auto-approve"
+                }
+            }
+        }
+    }
+}
