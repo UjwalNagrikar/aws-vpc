@@ -1,7 +1,7 @@
 pipeline {
     agent any
     parameters {
-        string(name: 'GIT_REPO_URL', defaultValue: 'https://github.com/COL-Software-Institute/col-june-fastrack.git', description: 'Git repository URL')
+        string(name: 'GIT_REPO_URL', defaultValue: 'https://github.com/UjwalNagrikar/aws-vpc.git', description: 'Git repository URL')
         choice(name: 'ACTION', choices: ['init','plan','apply','destroy'], description: 'Terraform action to perform')
     }
     stages {
